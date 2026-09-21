@@ -33,7 +33,7 @@ bin/bcurl localhost:9000/index.html > page.html
 bin/bcurl -v -H "x-demo: hello" localhost:9000/pixel.png > pixel.png
 ```
 
-`bcurl` writes the body to stdout untouched. Exit status is 0 on success, 1 for a 4xx or 5xx answer, 2 for bad usage and 3 if the exchange itself failed. With `-v` every frame that crosses the connection is hexdumped to stderr, split at frame boundaries, straight from the bytes read and written (nothing is re-encoded for the display).
+`bcurl` writes the body to stdout untouched. Exit status is 0 on success, 1 for a 4xx or 5xx answer, 2 for bad usage and 3 if the exchange itself failed. With `-v` every frame that crosses the connection is hexdumped to stderr in full, header and every payload byte, split at frame boundaries, straight from the bytes read and written (nothing is re-encoded for the display). For a large file that is a lot of output, so redirect it: `bcurl -v host:port/big.bin > big.bin 2> wire.txt`.
 
 ## Tests
 
@@ -42,7 +42,7 @@ go test ./...
 go test ./internal/frame -fuzz FuzzRead
 ```
 
-The suite covers framing under every read boundary (whole, byte at a time, random chunks), short and stalled writes, oversized and truncated frames, malformed requests, the path rules including Windows-specific forms and junction escapes, binary and boundary-sized files (0, 1, 16383, 16384, 16385 bytes and up to 1 MiB), persistent and pipelined connections, many simultaneous clients, idle timeouts, the bounded drain after an error, a `500`, and a file that shrinks mid-transfer. The command-line tests run the real executables and check exit codes and raw stdout bytes.
+The suite covers framing under every read boundary (whole, byte at a time, random chunks), short and stalled writes, oversized and truncated frames, malformed requests, the path rules including Windows-specific forms and junction escapes, binary and boundary-sized files (0, 1, 16383, 16384, 16385 bytes and up to 1 MiB), persistent and pipelined connections, many simultaneous clients, idle timeouts, the bounded drain after an error, a `500`, and a file that shrinks mid-transfer. The command-line tests run the real executables and check exit codes and raw stdout bytes, and one of them puts a recording proxy between `bcurl -v` and the server and checks that the bytes rebuilt from the verbose text are exactly the bytes the proxy recorded, in both directions.
 
 ## Interoperability
 
