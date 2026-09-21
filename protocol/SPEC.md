@@ -117,7 +117,8 @@ Layout: `WIRE_FORMAT §5`. Method `0x01` = GET (only defined method).
 Flags: END_STREAM MUST be set (no request body in v1). The path is opaque
 UTF-8 bytes of length 1–4096 with an explicit length; the file-serving rules for
 it are in §11. Request headers are validated (§7, §8) and otherwise ignored by
-a file server; none is required, and a client MAY send Header Count 0. The
+a file server; none is required, and a client MAY send Header Count 0. A server never
+validates the value of a request header, only its structure. The
 smallest valid REQUEST payload is 5 bytes (method, Path Length, 1-byte path,
 Header Count). A client is not required to validate the path before sending;
 the server enforces §11.1. A REQUEST received by a client is a protocol fault:
@@ -177,7 +178,9 @@ stream and keep the connection open, if any of these holds:
 
 A `400` response has an empty body (§11.4). The malformed frame's boundary is
 known, so the stream stays synchronized; that is why this is not a connection
-fault.
+fault. Every offending frame gets its own `400`, even when the stream was
+already answered, so a client that sends several bad frames receives several
+`400`s.
 
 ## 9. Connection-level faults: ERROR
 
@@ -202,8 +205,9 @@ Rules:
 3. Delivery of the ERROR is best effort, but the sender MUST shut down its write
    side (TCP FIN) after the ERROR rather than abort, and SHOULD then read and
    discard incoming bytes, bounded both in time and in volume (reference: 1 s
-   and 64 KiB), before fully closing, so unread input does not turn the close into a reset that destroys
-   the ERROR. While a stream is outstanding, a receiver that sees EOF or a reset
+   from the moment the ERROR was sent, and 64 KiB), before fully closing, so unread input does not turn the close into a reset that destroys
+   the ERROR. A peer that has just sent an ERROR MUST treat a reset the same as EOF.
+   While a stream is outstanding, a receiver that sees EOF or a reset
    without an ERROR treats it as failure too; EOF at a frame boundary with no
    stream outstanding is a clean close (§10.2).
 4. A peer that speaks the wrong protocol (for example text HTTP, whose first
@@ -248,6 +252,13 @@ every platform so behavior is identical everywhere.
 7. No segment, ignoring case and any extension (text from the first `.`), is a
    reserved device name: `CON PRN AUX NUL COM1–COM9 LPT1–LPT9`.
 
+Clarifications. "Valid UTF-8" is RFC 3629: no overlong forms, no surrogate code
+points, nothing above U+10FFFF; other non-ASCII characters are allowed. A
+trailing slash produces an empty final segment, which is allowed; empty
+segments anywhere else are already excluded by rule 4. For rule 7 the stem is
+the text before the first `.`, so `/nul.tar.gz`, `/CON.txt` and `/dir/com1`
+are rejected, while `/.hidden`, `/console`, `/com10` and `/x.con` are fine.
+
 There is **no** percent-decoding and no query string: `?` is rejected by
 rule 3, while `%` and `#` are ordinary bytes. Path bytes are matched literally
 against file names.
@@ -272,7 +283,9 @@ file does not match (404).
 After the string rules, the server MUST resolve the final filesystem path,
 including symbolic links and Windows junctions, and MUST NOT serve it unless it
 lies inside the resolved `<root>`. A path that resolves outside the root is
-answered `404`. The server MUST NOT reveal outside file existence.
+answered `404`. The server MUST NOT reveal outside file existence. A link that stays inside the
+root is served like any other file. Whether a name matches case-sensitively is
+whatever the underlying filesystem does and is not part of the protocol.
 
 ### 11.4 Responses
 
@@ -282,7 +295,7 @@ answered `404`. The server MUST NOT reveal outside file existence.
 | Missing file; directory without `index.html`; not a regular file; outside root | `404`, empty body |
 | Malformed request or invalid path (§8, §11.1) | `400`, empty body |
 | Internal failure before RESPONSE is sent | `500`, empty body |
-| Internal failure after RESPONSE is sent | `ERROR(3)`, close (§9) |
+| Internal failure after RESPONSE is sent, such as a file that turns out shorter than announced | `ERROR(3)`, close (§9) |
 
 Headers a v1 file server sends, in this order:
 
