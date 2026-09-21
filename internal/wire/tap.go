@@ -15,9 +15,10 @@ import (
 	"bhttp/internal/frame"
 )
 
-// dataPreview limits how much of each DATA payload is printed. Bodies can be
-// megabytes; the frame header and the first bytes are what make a dump useful.
-const dataPreview = 256
+// rawPreview limits how much is printed for bytes that do not form a frame.
+// Whole frames are always printed in full, but unframed bytes have no boundary
+// to stop at, so a misbehaving peer could otherwise make the dump endless.
+const rawPreview = 256
 
 // Tap prints every frame seen in either direction, in the order it happened.
 type Tap struct {
@@ -131,16 +132,9 @@ func (f *framer) printFrame(b []byte) {
 		f.arrow, t.seq, typeName(typ), binary.BigEndian.Uint32(hdr[8:12]), flagNames(hdr[5]), len(payload))
 	fmt.Fprintf(t.out, "    header   % X\n", hdr)
 
-	shown := payload
-	if typ == frame.TypeData && len(shown) > dataPreview {
-		shown = shown[:dataPreview]
-	}
-	if len(shown) > 0 {
+	if len(payload) > 0 {
 		fmt.Fprintf(t.out, "    payload\n")
-		writeRows(t.out, "      ", shown)
-	}
-	if len(shown) < len(payload) {
-		fmt.Fprintf(t.out, "      ... %d more payload bytes not shown\n", len(payload)-len(shown))
+		writeRows(t.out, "      ", payload)
 	}
 }
 
@@ -148,8 +142,8 @@ func (f *framer) printRaw(why string, b []byte) {
 	t := f.tap
 	fmt.Fprintf(t.out, "%s %s (%d bytes)\n", f.arrow, why, len(b))
 	shown := b
-	if len(shown) > dataPreview {
-		shown = shown[:dataPreview]
+	if len(shown) > rawPreview {
+		shown = shown[:rawPreview]
 	}
 	writeRows(t.out, "      ", shown)
 	if len(shown) < len(b) {

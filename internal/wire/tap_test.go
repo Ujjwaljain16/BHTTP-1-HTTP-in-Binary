@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"net"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -68,21 +69,59 @@ func TestBoundariesDoNotChangeTheDump(t *testing.T) {
 	}
 }
 
-func TestLongDataPayloadsAreTrimmedButHeadersAreNot(t *testing.T) {
-	var out bytes.Buffer
-	tap := NewTap(&out)
-	tap.feed(&tap.recv, encode(t, frame.Frame{Type: frame.TypeData, StreamID: 1, Payload: make([]byte, 5000)}))
+var hexRow = regexp.MustCompile(`^\s+[0-9A-F]{8}  ([0-9A-F ]+?)\s+\|`)
 
-	got := out.String()
-	if !strings.Contains(got, "length=5000") || !strings.Contains(got, "4744 more payload bytes not shown") {
-		t.Errorf("unexpected trimming:\n%s", got)
+// dumped rebuilds the bytes a dump claims were seen going one way, using only
+// the dump's text, so it can be compared with what really crossed the wire.
+func dumped(dump, arrow string) []byte {
+	var out []byte
+	var inDirection bool
+	for _, line := range strings.Split(dump, "\n") {
+		switch {
+		case strings.HasPrefix(line, "--> frame"), strings.HasPrefix(line, "<-- frame"):
+			inDirection = strings.HasPrefix(line, arrow)
+		case !inDirection:
+		case strings.HasPrefix(strings.TrimSpace(line), "header"):
+			out = append(out, unhex(strings.TrimPrefix(strings.TrimSpace(line), "header"))...)
+		default:
+			if m := hexRow.FindStringSubmatch(line); m != nil {
+				out = append(out, unhex(m[1])...)
+			}
+		}
 	}
+	return out
+}
 
-	out.Reset()
-	tap = NewTap(&out)
-	tap.feed(&tap.recv, encode(t, frame.Frame{Type: frame.TypeResponse, StreamID: 1, Payload: make([]byte, 1000)}))
-	if strings.Contains(out.String(), "not shown") {
-		t.Error("non-data payloads must be shown in full")
+func unhex(s string) []byte {
+	var b []byte
+	for _, f := range strings.Fields(s) {
+		var v byte
+		fmt.Sscanf(f, "%02X", &v)
+		b = append(b, v)
+	}
+	return b
+}
+
+func TestEveryPayloadByteIsPrinted(t *testing.T) {
+	for _, size := range []int{1, 255, 256, 257, 5000, frame.MaxPayload} {
+		for _, typ := range []frame.Type{frame.TypeData, frame.TypeResponse, frame.TypeRequest} {
+			payload := make([]byte, size)
+			for i := range payload {
+				payload[i] = byte(i*31 + 7)
+			}
+			wire := encode(t, frame.Frame{Type: typ, StreamID: 1, Payload: payload})
+
+			var out bytes.Buffer
+			tap := NewTap(&out)
+			tap.feed(&tap.recv, wire)
+
+			if strings.Contains(out.String(), "not shown") {
+				t.Errorf("type %d, %d bytes: part of the frame was left out", typ, size)
+			}
+			if got := dumped(out.String(), "<--"); !bytes.Equal(got, wire) {
+				t.Errorf("type %d, %d bytes: the dump holds %d bytes, want the %d that were received", typ, size, len(got), len(wire))
+			}
+		}
 	}
 }
 
