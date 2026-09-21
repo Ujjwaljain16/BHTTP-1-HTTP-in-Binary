@@ -66,7 +66,7 @@ Building them surfaced about seventy places where the first draft of the specifi
 
 ## Known limits
 
-- The Go race detector could not be run: it needs a C compiler and this Windows machine has none. The concurrency is exercised by tests with many simultaneous connections, but not under `-race`.
+- The Go race detector needs a C compiler, which the Windows development machine lacks, so it was run in a Linux container instead (`golang:1.23`, Go 1.23.12): the whole suite passes under `-race` with no data races reported. That run is Linux-only, so the Windows-specific code paths (the exclusive-lock 500 test and junction handling) were exercised natively but not under the race detector, and the 500 test is skipped there because the container runs as root.
 - The last round of specification clarifications (path and UTF-8 details, links inside the root, reset versus EOF after an error) was not re-read by a fresh blind implementer. The interoperability runs above were made against the final text and pass, and the Go code already followed those rules, but that is a weaker check than a new independent reading.
 - Interoperability has been shown against two implementations written from the specification, not yet against another person's server.
 - There is no version field in the frame header. A different version can only be detected by a fault.
