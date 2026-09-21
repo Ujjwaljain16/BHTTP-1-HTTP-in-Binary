@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>BHTTP/1 specification</title>
+<style>
+  @page { size: A4; margin: 11mm 12mm; }
+  * { box-sizing: border-box; }
+  body { font: 9.4pt/1.32 "Segoe UI", Arial, sans-serif; color: #111; margin: 0; }
+  h1 { font-size: 15pt; margin: 0 0 1mm; }
+  h2 { font-size: 10.6pt; margin: 2.6mm 0 0.8mm; border-bottom: 0.4pt solid #888; padding-bottom: 0.3mm; }
+  p { margin: 0.8mm 0; }
+  ul { margin: 0.6mm 0; padding-left: 4.2mm; }
+  li { margin: 0; }
+  code, .m { font-family: Consolas, "Courier New", monospace; font-size: 8.8pt; }
+  table { border-collapse: collapse; width: 100%; margin: 0.9mm 0; }
+  th, td { border: 0.4pt solid #999; padding: 0.35mm 1.3mm; vertical-align: top; text-align: left; }
+  th { background: #eee; font-weight: 600; }
+  .sub { color: #444; margin: 0 0 1mm; }
+  .cols { columns: 2; column-gap: 5mm; }
+  .cols h2:first-child { margin-top: 0; }
+  .avoid { break-inside: avoid; }
+</style>
+</head>
+<body>
+
+<h1>BHTTP/1: a binary HTTP-like protocol over TCP</h1>
+<p class="sub">Version 1. Everything a stranger needs to write a compatible client or server. MUST, SHOULD and MAY are used in the RFC 2119 sense.</p>
+
+<h2>1. Model</h2>
+<p>BHTTP/1 runs over one persistent TCP connection; there is no assigned port. A client asks for a resource by path, the server answers with a status, headers and an opaque byte body. Exchanges are sequential and the connection stays open between them; a peer ends it by closing TCP, and no header controls that. TCP read and write boundaries mean nothing: receivers rebuild frames from the byte stream with exact reads, senders write every byte. A client never opens a second connection or reconnects silently to send another request. All multi-byte integers are unsigned and big-endian.</p>
+
+<h2>2. Frame</h2>
+<p>Every message is a frame: a 12-byte header followed by <code>Length</code> payload bytes, frames back to back.</p>
+<table>
+<tr><th>Offset</th><th>Size</th><th>Field</th><th>Meaning</th></tr>
+<tr><td>0</td><td>4</td><td>Length</td><td>payload bytes after the header (header not counted), 0 to 16384</td></tr>
+<tr><td>4</td><td>1</td><td>Type</td><td>1 REQUEST, 2 RESPONSE, 3 DATA, 4 ERROR; any other value is unknown</td></tr>
+<tr><td>5</td><td>1</td><td>Flags</td><td>bit 0 (0x01) END_STREAM: last frame of this stream; other bits reserved, sent as 0</td></tr>
+<tr><td>6</td><td>2</td><td>Reserved</td><td>sender sends 0, receiver ignores it</td></tr>
+<tr><td>8</td><td>4</td><td>Stream ID</td><td>non-zero on REQUEST, RESPONSE and DATA; ERROR uses 0</td></tr>
+</table>
+<p>Widths: Length is 32 bits although 14 would fit the 16 KiB cap, which keeps the header 4-byte aligned and lets a later version raise the cap without changing the layout. Type has 251 values left for extensions, and Reserved is room for a future field.</p>
+
+<p><b>Receiver algorithm</b> (client and server alike):</p>
+<ul>
+<li>Read exactly 12 bytes. EOF before the first byte is a clean close; EOF later inside a frame means truncation: discard the partial frame, send nothing, close.</li>
+<li>If Length &gt; 16384: send <code>ERROR(1)</code> and close (if the oversized frame is itself an ERROR, just close). No memory is allocated from an unchecked Length.</li>
+<li>If Type is unknown: read and discard exactly Length bytes and carry on. Flags, Reserved and Stream ID of an unknown frame are not examined, and it never closes the connection.</li>
+<li>Read exactly Length bytes. If Type is 1, 2 or 3 and Stream ID is 0: send <code>ERROR(2)</code> and close. Otherwise handle the frame.</li>
+</ul>
+
+<h2>3. Payloads</h2>
+<table>
+<tr><th>Frame</th><th>Payload layout (the payload must end exactly after the last field)</th></tr>
+<tr><td>REQUEST</td><td>Method u8 (1 = GET) | Path Length u16 (1 to 4096) | Path (UTF-8, explicit length, no terminator) | Header Count u8 | headers. Flags: END_STREAM required (there is no request body).</td></tr>
+<tr><td>RESPONSE</td><td>Status u16 (100 to 599) | Header Count u8 | headers</td></tr>
+<tr><td>DATA</td><td>Body bytes, unmodified: never decoded, normalized or terminated. At most 16384 per frame.</td></tr>
+<tr><td>ERROR</td><td>Code u16 (1 FRAME_TOO_LARGE, 2 INVALID_STREAM_ID, 3 PROTOCOL_ERROR) | Msg Length u16 | Msg (UTF-8, for humans only, no sensitive detail). Connection-level: Stream ID 0.</td></tr>
+</table>
+
+<p><b>Headers.</b> The first byte of a header decides its form.</p>
+<table>
+<tr><th>Form</th><th>Layout</th></tr>
+<tr><td>Known (ID 1 to 255)</td><td>ID u8 | Value Length u16 | Value. The name comes from the static table; it is not sent.</td></tr>
+<tr><td>Custom (ID 0)</td><td>0 | Name Length u16 (1 to 255) | Name (lowercase <code>a-z 0-9 - _ .</code>) | Value Length u16 | Value</td></tr>
+</table>
+<p class="m" style="margin:0.4mm 0">Static table: 1 content-type, 2 content-length, 3 server, 4 date, 5 connection, 6 content-encoding, 7 cache-control, 8 last-modified.</p>
+<ul>
+<li>A table name is always sent by its ID; a custom header whose name equals a table name is malformed. Duplicates are allowed and keep their order.</li>
+<li>IDs 9 to 255 are unassigned: parse them with the known layout and ignore them. Values are opaque bytes; only <code>content-length</code> has a syntax (1 to 19 ASCII digits, compared numerically). IDs 4 to 8 are reserved names with no behavior; <code>connection</code> never controls the connection.</li>
+</ul>
+
+<h2>4. Exchange</h2>
+<ul>
+<li>The client uses stream IDs 1, 2, 3, ... one per request, never reused or wrapped (after 4294967295 it sends nothing more). Every request consumes an ID, even one answered 400. The server accepts any non-zero ID and echoes it on every frame of its answer.</li>
+<li>Client: <code>REQUEST</code> with END_STREAM. Server: <code>RESPONSE</code>, then zero or more <code>DATA</code>. END_STREAM is on the RESPONSE when the body is empty, otherwise on the last DATA. There is never a trailing empty DATA frame, even when the size is an exact multiple of 16384. Receivers tolerate empty DATA frames. The body is the DATA payloads concatenated.</li>
+<li>Pipelined requests are answered in order and frames of different streams never interleave.</li>
+</ul>
+
+<h2>5. Errors, and what each fault causes</h2>
+<table>
+<tr><th>Situation</th><th>Outcome</th></tr>
+<tr><td>Well-framed REQUEST that is invalid: method not 1; a length that is zero, too large or runs past the payload; missing or trailing bytes; invalid UTF-8 (RFC 3629); bad header; END_STREAM missing or an undefined flag bit set; a path that breaks the rules in section 6. Also a RESPONSE or DATA sent to a server.</td><td><code>RESPONSE 400</code> on that stream, empty body, connection continues. Each bad frame gets its own 400.</td></tr>
+<tr><td>Valid request, file missing, directory without index, or path resolves outside the root</td><td><code>RESPONSE 404</code>, empty body</td></tr>
+<tr><td>Server fault before the RESPONSE is sent / after it (for example a file shorter than announced)</td><td><code>RESPONSE 500</code> / <code>ERROR(3)</code> and close, never a clean END_STREAM</td></tr>
+<tr><td>Length above 16384; Stream ID 0 on types 1 to 3</td><td><code>ERROR(1)</code> / <code>ERROR(2)</code> on stream 0, then close</td></tr>
+<tr><td>ERROR received</td><td>Close the connection; an ERROR is never answered</td></tr>
+</table>
+<p>After sending an ERROR the sender shuts down its write side, reads and discards input for at most 1 s and 64 KiB, then closes, so a reset does not destroy the ERROR. A peer that just sent an ERROR treats a reset like EOF. Statuses a v1 server emits: 200, 400, 404, 500.</p>
+
+<h2>6. File serving (<span class="m">bserve &lt;root&gt; &lt;port&gt;</span>)</h2>
+<ul>
+<li><b>Valid path</b> (else 400), the same on every platform: starts with <code>/</code>; no byte below 0x20 or 0x7F; none of <code>\ : * ? " &lt; &gt; |</code>; no <code>//</code>; no <code>.</code> or <code>..</code> segment; no segment ending in <code>.</code> or a space; no segment whose text before the first <code>.</code> is <code>CON PRN AUX NUL COM1-9 LPT1-9</code> in any case. There is no percent-decoding and no query string: bytes are matched literally.</li>
+<li><b>Mapping:</b> <code>/</code> is <code>root/index.html</code>; a directory, with or without a trailing slash, serves its <code>index.html</code>; a trailing slash on a regular file is 404. Symbolic links and junctions are resolved: inside the root they are served, outside they are 404.</li>
+<li><b>Response headers</b>, in this order: 200 has content-type, content-length (the exact body size, taken from the open file), server. 400, 404 and 500 have content-length 0 and server. The body is the file's raw bytes.</li>
+</ul>
+
+<h2>7. Client rules</h2>
+<ul>
+<li>Skip unknown frame types. After a request expect a RESPONSE on its own stream, then DATA on the same stream until END_STREAM. Anything else is a failure: a frame on another stream, DATA before RESPONSE, a second RESPONSE, an ERROR, EOF or truncation before END_STREAM, a status outside 100 to 599, or a content-length (every occurrence) that differs from the bytes received. After a failure the client closes the connection and never reuses it. Timeouts are the client's own policy.</li>
+<li>A client sends an ERROR only for the connection faults in section 2 and for a REQUEST arriving from a server (<code>ERROR(3)</code>). It ignores undefined flag bits on RESPONSE and DATA, while a server rejects them on REQUEST. Status 400 or above is an error (a command-line client exits non-zero); 100 to 399 is not, and 3xx is not followed.</li>
+</ul>
+
+<h2>8. Limits and extensibility</h2>
+<p>Frame payload 16384 bytes; path 4096; headers per message 255; custom name 255; a header value is at most 65535 by its encoding and in practice bounded by the frame. A whole REQUEST or RESPONSE payload is one frame. Every length is checked against these limits and the bytes remaining before it is used. v1 has no version field. Later versions add new frame types (skipped by v1 peers), and assign flag bits and header IDs (ignored by v1 receivers).</p>
+
+</body>
+</html>
