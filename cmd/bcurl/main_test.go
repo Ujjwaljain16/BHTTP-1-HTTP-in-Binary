@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -96,14 +97,17 @@ func startServer(t *testing.T) (addr string, binary []byte) {
 
 func TestBadUsage(t *testing.T) {
 	tests := map[string][]string{
-		"no arguments":        {},
-		"two targets":         {"localhost:1/a", "localhost:1/b"},
-		"unknown flag":        {"-x", "localhost:1/"},
-		"flag only":           {"-v"},
-		"target without port": {"localhost/index.html"},
-		"empty host":          {":9000/x"},
-		"empty port":          {"localhost:/x"},
-		"empty target":        {""},
+		"no arguments":           {},
+		"two targets":            {"localhost:1/a", "localhost:1/b"},
+		"unknown flag":           {"-x", "localhost:1/"},
+		"flag only":              {"-v"},
+		"target without port":    {"localhost/index.html"},
+		"empty host":             {":9000/x"},
+		"empty port":             {"localhost:/x"},
+		"empty target":           {""},
+		"header without colon":   {"-H", "nocolon", "localhost:1/"},
+		"header with bad name":   {"-H", "bad name: v", "localhost:1/"},
+		"header with empty name": {"-H", ": v", "localhost:1/"},
 	}
 	for name, args := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -201,6 +205,38 @@ func TestVerboseDumpsTheBytesThatCrossedTheConnection(t *testing.T) {
 		t.Errorf("without -v nothing should reach stderr, got %q", quiet.stderr)
 	}
 }
+
+func TestRequestHeadersAreSent(t *testing.T) {
+	addr, _ := startServer(t)
+	got := runBcurl(t, "-v", "-H", "X-Demo: hello", "-H", "content-type:text/plain", addr+"/index.html")
+	if got.code != 0 || string(got.stdout) != "<h1>hello</h1>\n" {
+		t.Fatalf("exit %d, stdout %q, stderr %q", got.code, got.stdout, got.stderr)
+	}
+	// A dump wraps every sixteen bytes, so compare the bytes themselves.
+	sent := hexBytes(got.stderr)
+	for name, want := range map[string]string{
+		"x-demo (lowercased, sent by name)": "782D64656D6F",
+		"hello":                             "68656C6C6F",
+		"text/plain (sent by table id)":     "746578742F706C61696E",
+	} {
+		if !strings.Contains(sent, want) {
+			t.Errorf("the request bytes do not contain %s:\n%s", name, got.stderr)
+		}
+	}
+}
+
+// hexBytes joins the hex columns of every dump row into one continuous string.
+func hexBytes(dump string) string {
+	var b strings.Builder
+	for _, line := range strings.Split(dump, "\n") {
+		if m := dumpRow.FindStringSubmatch(line); m != nil {
+			b.WriteString(strings.ReplaceAll(m[1], " ", ""))
+		}
+	}
+	return b.String()
+}
+
+var dumpRow = regexp.MustCompile(`^\s+[0-9A-F]{8}  ([0-9A-F ]+?)\s+\|`)
 
 func TestVerboseOnAnErrorResponse(t *testing.T) {
 	addr, _ := startServer(t)

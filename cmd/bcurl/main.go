@@ -1,7 +1,7 @@
 // Command bcurl fetches one path from a server speaking the binary protocol
 // and writes the body to standard output.
 //
-//	bcurl [-v] <host>:<port>[/path]
+//	bcurl [-v] [-H "name: value"]... <host>:<port>[/path]
 //
 // Exit status: 0 on success, 1 if the server answered 4xx or 5xx, 2 for bad
 // usage, 3 if the exchange itself failed.
@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"bhttp/internal/client"
+	"bhttp/internal/protocol"
 	"bhttp/internal/wire"
 )
 
@@ -30,8 +31,10 @@ func main() {
 func run(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("bcurl", flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	fs.Usage = func() { fmt.Fprintln(stderr, "usage: bcurl [-v] <host>:<port>[/path]") }
+	fs.Usage = func() { fmt.Fprintln(stderr, `usage: bcurl [-v] [-H "name: value"]... <host>:<port>[/path]`) }
 	verbose := fs.Bool("v", false, "hexdump every frame that crosses the connection (to stderr)")
+	var headers headerFlags
+	fs.Var(&headers, "H", `send a request header, e.g. -H "x-demo: hello" (repeatable)`)
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -60,7 +63,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	c := client.New(conn)
 	defer c.Close()
 
-	res, err := c.Get(path, stdout)
+	res, err := c.Get(path, stdout, headers...)
 	if err != nil {
 		fmt.Fprintf(stderr, "bcurl: %v\n", err)
 		return 3
@@ -70,6 +73,27 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 	return 0
+}
+
+// headerFlags collects repeated -H options. Names are lowercased because the
+// protocol only carries lowercase names, and header names are case-insensitive
+// wherever people are used to writing them.
+type headerFlags []protocol.Header
+
+func (h *headerFlags) String() string { return "" }
+
+func (h *headerFlags) Set(v string) error {
+	name, value, ok := strings.Cut(v, ":")
+	name = strings.ToLower(strings.TrimSpace(name))
+	if !ok || name == "" {
+		return fmt.Errorf("header %q must look like name: value", v)
+	}
+	hdr := protocol.NewHeader(name, strings.TrimLeft(value, " \t"))
+	if _, err := (protocol.Request{Method: protocol.MethodGet, Path: "/", Headers: []protocol.Header{hdr}}).Encode(); err != nil {
+		return fmt.Errorf("header %q: %w", v, err)
+	}
+	*h = append(*h, hdr)
+	return nil
 }
 
 // parseTarget splits "host:port/path" into a dial address and a request path.
