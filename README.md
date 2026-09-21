@@ -1,4 +1,4 @@
-# BHTTP/1: HTTP, in Binary
+# BHTTP/1 — HTTP, in Binary
 
 A small binary, HTTP-like application protocol over persistent TCP.
 
@@ -13,6 +13,8 @@ The reference implementation is a Go file server (`bserve`), accompanied by a cl
 The interesting part of BHTTP/1 is not serving a file. It is defining a wire protocol precisely enough that two independently written programs can talk to each other without sharing any code.
 
 That means dealing with TCP read boundaries, binary serialization, frame limits, unknown extensions, malformed input, persistent connections, filesystem security, arbitrary binary bodies, deterministic error behaviour, and interoperability across languages. The Go implementation is one implementation of the protocol, not the protocol itself.
+
+The deliverable is not just a server. It is the protocol specification, the wire format, the reference implementation, and the evidence that an independent implementation can interoperate with it.
 
 ## Protocol at a glance
 
@@ -39,7 +41,8 @@ Length u32 | Type u8 | Flags u8 | Reserved u16 | Stream ID u32
 ```
 
 - Big-endian; maximum payload 16 KiB (16384 bytes)
-- Types: REQUEST, RESPONSE, DATA, ERROR. Unknown frame types are skipped by length
+- Types: REQUEST (`0x01`), RESPONSE (`0x02`), DATA (`0x03`), ERROR (`0x04`)
+- Unknown frame types are skipped by length
 - Bodies are opaque bytes and are never interpreted
 - Connections are persistent; v1 requests are sequential, with no multiplexing
 
@@ -82,10 +85,10 @@ docker run --rm -p 9000:9000 bhttp
 
 ## Independent interoperability
 
-Two implementations were written by an implementer who saw only the three files in `protocol/`, sharing no code with the Go side:
+Two independent Python implementations were written from the specification alone (the three files in `protocol/`), sharing no code with the Go implementation.
 
-- `tests/interop/python_client` against `bserve`: 135 checks pass, including a SHA-256 comparison of a binary file (log in `tests/interop/logs`).
-- `bcurl` against `tests/interop/python_server`: statuses, exit codes and a byte-identical binary body, plus eight requests on one connection (also logged).
+- The Python client (`tests/interop/python_client`) against `bserve` passes 135 checks, including a SHA-256 comparison of a binary file. The log is in `tests/interop/logs`.
+- `bcurl` against the Python server (`tests/interop/python_server`) passes status, exit-code and byte-for-byte body checks, and the Go client library sends eight requests over one persistent connection to it. Also logged.
 
 Building them surfaced about seventy places where the first draft of the specification was ambiguous or silent. Each was resolved in the specification rather than in code, and the runs above are against the final text.
 
@@ -143,7 +146,7 @@ The reasoning is in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md); in short:
 - **Metadata and body are separate frames,** so memory stays bounded whatever the file size and body bytes are never interpreted.
 - **Two kinds of failure, two channels.** A well-framed but invalid request gets a `400` and the connection carries on. Anything that makes the stream untrustworthy gets an `ERROR` frame on stream 0 and the connection closes.
 - **Unknown frame types are skipped, and the length is validated before anything is allocated,** including for types the receiver does not know. The unknown-type check comes right after the length check, so nothing else about such a frame can cause a fault.
-- **After an `ERROR` the sender half-closes and drains for at most one second and 64 KiB,** so a reset cannot destroy the error and a hostile peer cannot hold the connection open.
+- **After an `ERROR` the connection enters a bounded drain.** The sender finishes writing, then keeps reading and discarding for at most one second and 64 KiB before closing. That stops a reset from destroying the error, and stops a peer from holding the connection open indefinitely.
 - **A truncated download can never look complete.** Empty bodies end on the RESPONSE frame, never on a trailing empty DATA frame, and a file that turns out shorter than announced ends in an `ERROR`, never a clean end of stream.
 - **Path rules are the same on every platform,** and the resolved path, including symlinks and junctions, is checked to stay inside the root as a second line of defence.
 
