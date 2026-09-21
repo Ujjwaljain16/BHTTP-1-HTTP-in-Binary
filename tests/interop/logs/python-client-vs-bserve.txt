@@ -1,0 +1,138 @@
+PASS  GET /: status 200
+PASS  GET /: stream id echoed on all frames
+PASS  GET /: first frame is RESPONSE
+PASS  GET /: END_STREAM only on last frame
+PASS  GET /: reserved flag bits clear
+PASS  GET /: DATA <= 16384 each
+PASS  GET /: no empty DATA frames
+PASS  GET /: header IDs [1,2,3]
+PASS  GET /: content-length == DATA total
+PASS  GET /: RESPONSE has no END_STREAM, last DATA has it
+PASS  GET /: content-type present
+PASS  GET /index.html: status 200
+PASS  GET /index.html: stream id echoed on all frames
+PASS  GET /index.html: first frame is RESPONSE
+PASS  GET /index.html: END_STREAM only on last frame
+PASS  GET /index.html: reserved flag bits clear
+PASS  GET /index.html: DATA <= 16384 each
+PASS  GET /index.html: no empty DATA frames
+PASS  GET /index.html: header IDs [1,2,3]
+PASS  GET /index.html: content-length == DATA total
+PASS  GET /index.html: RESPONSE has no END_STREAM, last DATA has it
+PASS  GET /index.html: content-type present
+PASS  GET /binary.bin: status 200
+PASS  GET /binary.bin: stream id echoed on all frames
+PASS  GET /binary.bin: first frame is RESPONSE
+PASS  GET /binary.bin: END_STREAM only on last frame
+PASS  GET /binary.bin: reserved flag bits clear
+PASS  GET /binary.bin: DATA <= 16384 each
+PASS  GET /binary.bin: no empty DATA frames
+PASS  GET /binary.bin: header IDs [1,2,3]
+PASS  GET /binary.bin: content-length == DATA total
+PASS  GET /binary.bin: RESPONSE has no END_STREAM, last DATA has it
+PASS  GET /binary.bin: content-type present
+PASS  GET /missing: status 404
+PASS  GET /missing: stream id echoed on all frames
+PASS  GET /missing: first frame is RESPONSE
+PASS  GET /missing: END_STREAM only on last frame
+PASS  GET /missing: reserved flag bits clear
+PASS  GET /missing: DATA <= 16384 each
+PASS  GET /missing: no empty DATA frames
+PASS  GET /missing: header IDs [2,3]
+PASS  GET /missing: content-length == '0'
+PASS  GET /missing: empty body, END_STREAM on RESPONSE
+PASS  / body == /index.html body
+PASS  / sha256 matches index.html
+PASS  /index.html sha256 matches index.html
+PASS  /binary.bin sha256 matches binary.bin
+INFO  /binary.bin: 76805 bytes in 5 DATA frames
+PASS  /binary.bin split into >1 DATA frames
+PASS  stream IDs used were 1..4
+PASS  malformed method 0x02: status 400
+PASS  malformed method 0x02: stream id echoed on all frames
+PASS  malformed method 0x02: first frame is RESPONSE
+PASS  malformed method 0x02: END_STREAM only on last frame
+PASS  malformed method 0x02: reserved flag bits clear
+PASS  malformed method 0x02: DATA <= 16384 each
+PASS  malformed method 0x02: no empty DATA frames
+PASS  malformed method 0x02: header IDs [2,3]
+PASS  malformed method 0x02: content-length == '0'
+PASS  malformed method 0x02: empty body, END_STREAM on RESPONSE
+PASS  GET /index.html: status 200
+PASS  GET /index.html: stream id echoed on all frames
+PASS  GET /index.html: first frame is RESPONSE
+PASS  GET /index.html: END_STREAM only on last frame
+PASS  GET /index.html: reserved flag bits clear
+PASS  GET /index.html: DATA <= 16384 each
+PASS  GET /index.html: no empty DATA frames
+PASS  GET /index.html: header IDs [1,2,3]
+PASS  GET /index.html: content-length == DATA total
+PASS  GET /index.html: RESPONSE has no END_STREAM, last DATA has it
+PASS  GET /index.html: content-type present
+PASS  GET after 400 still correct
+PASS  request without END_STREAM: status 400
+PASS  request without END_STREAM: stream id echoed on all frames
+PASS  request without END_STREAM: first frame is RESPONSE
+PASS  request without END_STREAM: END_STREAM only on last frame
+PASS  request without END_STREAM: reserved flag bits clear
+PASS  request without END_STREAM: DATA <= 16384 each
+PASS  request without END_STREAM: no empty DATA frames
+PASS  request without END_STREAM: header IDs [2,3]
+PASS  request without END_STREAM: content-length == '0'
+PASS  request without END_STREAM: empty body, END_STREAM on RESPONSE
+PASS  request without END_STREAM: connection still usable (GET -> 200)
+PASS  request with undefined flag bit 0x80: status 400
+PASS  request with undefined flag bit 0x80: stream id echoed on all frames
+PASS  request with undefined flag bit 0x80: first frame is RESPONSE
+PASS  request with undefined flag bit 0x80: END_STREAM only on last frame
+PASS  request with undefined flag bit 0x80: reserved flag bits clear
+PASS  request with undefined flag bit 0x80: DATA <= 16384 each
+PASS  request with undefined flag bit 0x80: no empty DATA frames
+PASS  request with undefined flag bit 0x80: header IDs [2,3]
+PASS  request with undefined flag bit 0x80: content-length == '0'
+PASS  request with undefined flag bit 0x80: empty body, END_STREAM on RESPONSE
+PASS  request with undefined flag bit 0x80: connection still usable (GET -> 200)
+PASS  request with trailing byte: status 400
+PASS  request with trailing byte: stream id echoed on all frames
+PASS  request with trailing byte: first frame is RESPONSE
+PASS  request with trailing byte: END_STREAM only on last frame
+PASS  request with trailing byte: reserved flag bits clear
+PASS  request with trailing byte: DATA <= 16384 each
+PASS  request with trailing byte: no empty DATA frames
+PASS  request with trailing byte: header IDs [2,3]
+PASS  request with trailing byte: content-length == '0'
+PASS  request with trailing byte: empty body, END_STREAM on RESPONSE
+PASS  request with trailing byte: connection still usable (GET -> 200)
+PASS  request with path traversal /../x: status 400
+PASS  request with path traversal /../x: stream id echoed on all frames
+PASS  request with path traversal /../x: first frame is RESPONSE
+PASS  request with path traversal /../x: END_STREAM only on last frame
+PASS  request with path traversal /../x: reserved flag bits clear
+PASS  request with path traversal /../x: DATA <= 16384 each
+PASS  request with path traversal /../x: no empty DATA frames
+PASS  request with path traversal /../x: header IDs [2,3]
+PASS  request with path traversal /../x: content-length == '0'
+PASS  request with path traversal /../x: empty body, END_STREAM on RESPONSE
+PASS  request with path traversal /../x: connection still usable (GET -> 200)
+PASS  nonzero Reserved ignored (200)
+PASS  after unknown frame type 0x05: status 200
+PASS  after unknown frame type 0x05: stream id echoed on all frames
+PASS  after unknown frame type 0x05: first frame is RESPONSE
+PASS  after unknown frame type 0x05: END_STREAM only on last frame
+PASS  after unknown frame type 0x05: reserved flag bits clear
+PASS  after unknown frame type 0x05: DATA <= 16384 each
+PASS  after unknown frame type 0x05: no empty DATA frames
+PASS  after unknown frame type 0x05: header IDs [1,2,3]
+PASS  after unknown frame type 0x05: content-length == DATA total
+PASS  after unknown frame type 0x05: RESPONSE has no END_STREAM, last DATA has it
+PASS  after unknown frame type 0x05: content-type present
+PASS  REQUEST stream 0: ERROR frame received
+PASS  REQUEST stream 0: code 2
+PASS  REQUEST stream 0: stream 0, flags 0
+PASS  REQUEST stream 0: ERROR then clean EOF (nothing after ERROR)
+PASS  Length 16385: ERROR frame received
+PASS  Length 16385: code 1
+PASS  Length 16385: stream 0, flags 0
+PASS  Length 16385: ERROR then clean EOF (nothing after ERROR)
+
+ALL PASSED (0 failed checks)
