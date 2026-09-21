@@ -60,10 +60,11 @@ func New(conn net.Conn) *Client {
 
 func (c *Client) Close() error { return c.conn.Close() }
 
-// Get requests path and streams the body into body as it arrives. Any HTTP-style
+// Get requests path, sending any extra request headers, and streams the body
+// into body as it arrives. Any HTTP-style
 // status, including 404, is a normal result; errors mean the exchange itself
 // went wrong and the connection is no longer usable.
-func (c *Client) Get(path string, body io.Writer) (Result, error) {
+func (c *Client) Get(path string, body io.Writer, headers ...protocol.Header) (Result, error) {
 	if c.broken {
 		return Result{}, ErrBroken
 	}
@@ -78,7 +79,7 @@ func (c *Client) Get(path string, body io.Writer) (Result, error) {
 		c.next++
 	}
 
-	payload, err := protocol.Request{Method: protocol.MethodGet, Path: path}.Encode()
+	payload, err := protocol.Request{Method: protocol.MethodGet, Path: path, Headers: headers}.Encode()
 	if err != nil {
 		// Nothing was sent, so the connection is still fine.
 		return Result{}, fmt.Errorf("cannot build request: %w", err)
