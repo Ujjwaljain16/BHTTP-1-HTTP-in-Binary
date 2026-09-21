@@ -119,7 +119,7 @@ func fetchSums(t *testing.T, addr string, paths []string) map[string][32]byte {
 
 func TestAWellBehavedClientSurvivesEveryMode(t *testing.T) {
 	backend := startBackend(t)
-	paths := []string{"/", "/index.html", "/all-bytes.bin", "/edge-16383.bin", "/edge-16384.bin", "/edge-16385.bin", "/edge-65536.bin", "/empty.txt", "/pixel.png", "/unicode/naïve.txt"}
+	paths := []string{"/", "/index.html", "/binary.bin", "/edge-16383.bin", "/edge-16384.bin", "/edge-16385.bin", "/edge-65536.bin", "/empty.txt", "/pixel.png", "/unicode/naïve.txt"}
 	want := fetchSums(t, backend, paths)
 
 	// Delays are left out here: on some systems even a microsecond sleep lasts a
@@ -147,7 +147,7 @@ func TestAWellBehavedClientSurvivesEveryMode(t *testing.T) {
 
 func TestDelaysBetweenPiecesAreHonouredOnSmallFiles(t *testing.T) {
 	backend := startBackend(t)
-	small := []string{"/", "/pixel.png", "/empty.txt", "/all-bytes.bin"}
+	small := []string{"/", "/pixel.png", "/empty.txt", "/binary.bin"}
 	want := fetchSums(t, backend, small)
 
 	start := time.Now()
