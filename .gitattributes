@@ -1,0 +1,8 @@
+* text=auto eol=lf
+
+# Fixture bytes must reach every checkout unchanged, or the checksums break.
+conformance/www/** -text
+examples/hexdump/www/** -text
+*.bin binary
+*.png binary
+*.pdf binary
