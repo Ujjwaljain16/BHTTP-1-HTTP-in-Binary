@@ -1,0 +1,6 @@
+*.exe
+/bin/
+*.test
+*.out
+__pycache__/
+*.pyc
