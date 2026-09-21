@@ -202,15 +202,18 @@ Rules:
    substitute replacement characters).
 2. If a client receives ERROR or EOF before END_STREAM of an outstanding
    stream, that response is incomplete and the client MUST report failure.
-3. Delivery of the ERROR is best effort, but the sender MUST shut down its write
-   side (TCP FIN) after the ERROR rather than abort, and SHOULD then read and
-   discard incoming bytes, bounded both in time and in volume (reference: 1 s
-   from the moment the ERROR was sent, and 64 KiB), before fully closing, so unread input does not turn the close into a reset that destroys
-   the ERROR. A peer that has just sent an ERROR MUST treat a reset the same as EOF.
-   While a stream is outstanding, a receiver that sees EOF or a reset
-   without an ERROR treats it as failure too; EOF at a frame boundary with no
-   stream outstanding is a clean close (§10.2).
-4. A peer that speaks the wrong protocol (for example text HTTP, whose first
+3. Delivery of an ERROR is best effort, but the sender MUST shut down its write
+   side (a TCP FIN) after sending it rather than abort the connection. It
+   SHOULD then read and discard incoming bytes, bounded in both time and volume
+   (reference: 1 s from the moment the ERROR was sent, and 64 KiB), before
+   fully closing. Closing with unread input pending can make the operating
+   system reset the connection, and a reset can destroy the ERROR before the
+   peer has read it.
+4. A peer that has just sent an ERROR MUST treat a reset the same as EOF. While
+   a stream is outstanding, a receiver that sees EOF or a reset without an
+   ERROR treats it as failure too; EOF at a frame boundary with no stream
+   outstanding is a clean close (§10.2).
+5. A peer that speaks the wrong protocol (for example text HTTP, whose first
    four bytes read as a length far above 16384) is handled by the first row of
    the table above.
 
@@ -252,12 +255,13 @@ every platform so behavior is identical everywhere.
 7. No segment, ignoring case and any extension (text from the first `.`), is a
    reserved device name: `CON PRN AUX NUL COM1–COM9 LPT1–LPT9`.
 
-Clarifications. "Valid UTF-8" is RFC 3629: no overlong forms, no surrogate code
-points, nothing above U+10FFFF; other non-ASCII characters are allowed. A
-trailing slash produces an empty final segment, which is allowed; empty
-segments anywhere else are already excluded by rule 4. For rule 7 the stem is
-the text before the first `.`, so `/nul.tar.gz`, `/CON.txt` and `/dir/com1`
-are rejected, while `/.hidden`, `/console`, `/com10` and `/x.con` are fine.
+Notes on the rules. "Valid UTF-8" means RFC 3629: no overlong forms, no
+surrogate code points, nothing above U+10FFFF; other non-ASCII characters are
+allowed. A trailing slash leaves an empty final segment, which is allowed;
+empty segments anywhere else are excluded by rule 4. For rule 7 the name that
+is compared is the text before the first `.`, so `/nul.tar.gz`, `/CON.txt` and
+`/dir/com1` are rejected, while `/.hidden`, `/console`, `/com10` and `/x.con`
+are fine.
 
 There is **no** percent-decoding and no query string: `?` is rejected by
 rule 3, while `%` and `#` are ordinary bytes. Path bytes are matched literally
@@ -283,9 +287,10 @@ file does not match (404).
 After the string rules, the server MUST resolve the final filesystem path,
 including symbolic links and Windows junctions, and MUST NOT serve it unless it
 lies inside the resolved `<root>`. A path that resolves outside the root is
-answered `404`. The server MUST NOT reveal outside file existence. A link that stays inside the
-root is served like any other file. Whether a name matches case-sensitively is
-whatever the underlying filesystem does and is not part of the protocol.
+answered `404`, and the server MUST NOT reveal whether anything exists outside
+the root. A link that stays inside the root is served like any other file.
+Whether a name matches case-sensitively is whatever the underlying filesystem
+does and is not part of the protocol.
 
 ### 11.4 Responses
 
