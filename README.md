@@ -75,7 +75,7 @@ The reasoning is in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md); in short:
 ## Known limits
 
 - The Go race detector needs a C compiler, which the Windows development machine lacks, so it was run in a Linux container instead (`golang:1.23`, Go 1.23.12): the whole suite passes under `-race` with no data races reported. That run is Linux-only, so the Windows-specific code paths (the exclusive-lock 500 test and junction handling) were exercised natively but not under the race detector, and the 500 test is skipped there because the container runs as root.
-- The last round of specification clarifications (path and UTF-8 details, links inside the root, reset versus EOF after an error) was not re-read by a fresh blind implementer. The interoperability runs were made against the final text and pass, but that is a weaker check than a new independent reading.
+- The latest specification clarifications (path and UTF-8 details, links inside the root, reset versus EOF after an error) were not re-read by a fresh, independent implementer. The interoperability runs were made against the final text and pass, but that is a weaker check than a new independent reading.
 - Interoperability has been shown against two implementations written from the specification, not yet against another person's server.
 - There is no version field in the frame header. A different version can only be detected by a fault.
 - Requests are sequential in v1. There is no multiplexing, request body, compression or TLS.
