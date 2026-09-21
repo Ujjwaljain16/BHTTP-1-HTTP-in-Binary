@@ -65,7 +65,7 @@
 <tr><td>Known (ID 1 to 255)</td><td>ID u8 | Value Length u16 | Value. The name comes from the static table; it is not sent.</td></tr>
 <tr><td>Custom (ID 0)</td><td>0 | Name Length u16 (1 to 255) | Name (lowercase <code>a-z 0-9 - _ .</code>) | Value Length u16 | Value</td></tr>
 </table>
-<p class="m" style="margin:0.4mm 0">Static table: 1 content-type, 2 content-length, 3 server, 4 date, 5 connection, 6 content-encoding, 7 cache-control, 8 last-modified.</p>
+<p class="m" style="margin:0.4mm 0">Static table: 1 <span style="white-space:nowrap">content-type</span>, 2 <span style="white-space:nowrap">content-length</span>, 3 <span style="white-space:nowrap">server</span>, 4 <span style="white-space:nowrap">date</span>, 5 <span style="white-space:nowrap">connection</span>, 6 <span style="white-space:nowrap">content-encoding</span>, 7 <span style="white-space:nowrap">cache-control</span>, 8 <span style="white-space:nowrap">last-modified</span>.</p>
 <ul>
 <li>A table name is always sent by its ID; a custom header whose name equals a table name is malformed. Duplicates are allowed and keep their order.</li>
 <li>IDs 9 to 255 are unassigned: parse them with the known layout and ignore them. Values are opaque bytes; only <code>content-length</code> has a syntax (1 to 19 ASCII digits, compared numerically). IDs 4 to 8 are reserved names with no behavior; <code>connection</code> never controls the connection.</li>
