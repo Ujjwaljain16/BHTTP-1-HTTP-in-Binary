@@ -1,0 +1,23 @@
+# bcurl and the Go client against an independent Python server (written from the spec alone)
+bcurl 127.0.0.1:9124 -> exit 0, 44 body bytes 
+bcurl 127.0.0.1:9124/index.html -> exit 0, 44 body bytes 
+bcurl 127.0.0.1:9124/binary.bin -> exit 0, 76805 body bytes 
+bcurl 127.0.0.1:9124/missing.html -> exit 1, 0 body bytes bcurl: server answered 404
+bcurl 127.0.0.1:9124/a:b -> exit 1, 0 body bytes bcurl: server answered 400
+bcurl 127.0.0.1:9124/../x -> exit 1, 0 body bytes bcurl: server answered 400
+binary.bin: stdout identical to the file on disk
+
+# eight requests over one connection (go test, BHTTP_PEER)
+--- PASS: TestAgainstExternalServer (0.00s)
+PASS
+ok  	bhttp/internal/client	0.595s
+
+# the Python server's own log of that connection
+('127.0.0.1', 56600) stream 1: GET b'/'
+('127.0.0.1', 56600) stream 2: GET b'/index.html'
+('127.0.0.1', 56600) stream 3: GET b'/binary.bin'
+('127.0.0.1', 56600) stream 4: 404 b'/missing-file'
+('127.0.0.1', 56600) stream 5: 400 (invalid path)
+('127.0.0.1', 56600) stream 6: 400 (invalid path)
+('127.0.0.1', 56600) stream 7: GET b'/binary.bin'
+('127.0.0.1', 56600) stream 8: GET b'/index.html'
