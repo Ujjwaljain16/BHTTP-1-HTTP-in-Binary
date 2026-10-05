@@ -136,5 +136,5 @@ The race detector needs a C compiler that the Windows development machine lacks,
 
 - Requests are sequential: no multiplexing, no request bodies, no compression, no TLS.
 - There is no version negotiation.
-- Interoperability has been demonstrated against one implementation written by someone else (a client) and two written from the specification for this project. No one else's server has been tested; `docs/INTEROP_GUIDE.md` is written so that can be done in an afternoon.
+- The graded program is the server, and it has been exercised by one client written by someone else and one written blind from the specification for this project. Our own client has only been tried against our blind Python server, not against anyone else's; `docs/INTEROP_GUIDE.md` is written so that can be done in an afternoon.
 - The race-detector run was on Linux, so the Windows-only code paths (the exclusive-lock test for `500` and junction handling) ran natively but not under the detector.
