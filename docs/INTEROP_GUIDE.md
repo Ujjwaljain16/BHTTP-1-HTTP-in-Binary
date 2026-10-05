@@ -12,6 +12,8 @@ You need three things: the protocol (`protocol/bhttp1-spec.pdf`, two pages, with
 - [6. Testing a server instead](#6-testing-a-server-instead)
 - [7. When something does not match](#7-when-something-does-not-match)
 - [8. Mistakes worth avoiding](#8-mistakes-worth-avoiding)
+- [9. Attack your client with a hostile server](#9-attack-your-client-with-a-hostile-server)
+- [10. Check the bytes your client really sends](#10-check-the-bytes-your-client-really-sends)
 
 ## 1. Get a server
 
@@ -115,7 +117,7 @@ bin/bchaos -target 127.0.0.1:9000 -listen 127.0.0.1:9100 -chunk 5 -noise -seed 4
 - **`-noise`** inserts frames of unknown types (5, 6, 10, 126, 128, 254, 255) with random flags, reserved bytes, stream IDs (including 0) and payloads, before every server frame and after the last frame of each response. A correct client skips them by length and never looks at their other fields. A client that treats an unknown type as an error, or that checks the stream ID before the type, fails here.
 - **`-seed n`** makes a failing run repeatable.
 
-The proxy leaves requests untouched and passes ERROR frames and closes through. Its own tests prove it catches two classic mistakes (assuming one read is one frame header, and rejecting unknown types) while a correct client passes every mode. If your client passes checklist items 1 to 10 directly and fails through the proxy, the bug is in how it reads.
+The proxy leaves requests untouched and passes ERROR frames and closes through. A client that closes while unknown frames are still arriving after its last END_STREAM may end the connection with a reset instead of a clean close; that is allowed, and the server logged nothing unusual for it in our runs. Its own tests prove it catches two classic mistakes (assuming one read is one frame header, and rejecting unknown types) while a correct client passes every mode. If your client passes checklist items 1 to 10 directly and fails through the proxy, the bug is in how it reads.
 
 The server closes a connection that has been idle for 30 seconds, so do not slow the proxy so much that one response takes longer than that.
 
@@ -210,6 +212,54 @@ These are the points where independent implementations stumbled while this speci
 - **Verify `content-length` against what you received.** A mismatch means the response is invalid.
 - **An `ERROR` frame means close.** Never reply to one.
 - **Path bytes go on the wire as they are:** UTF-8, no percent-encoding, no trailing NUL.
+- **Read response headers by structure only.** Do not fail a response because a custom header name has upper-case letters or matches a table name; ignore that header, and never treat a custom `content-length` as the real one. Our own client got this wrong until the attack tool in section 9 caught it.
+- **If your client writes to a file, an interrupt must not leave a partial file behind.** Move the file into place only after the whole exchange has completed, so Ctrl-C or a full disk cannot make a truncated download look finished. A classmate's client had exactly this gap, found with the same tool.
+
+## 9. Attack your client with a hostile server
+
+A well-behaved server never shows how a client copes with faults, and most of what the client rules ask for is about faults. `tests/interop/client_attack.py` plays a server that misbehaves in one way at a time and judges your client on three things: its exit status, whether it answered with an `ERROR` frame (and which code) or simply closed, and whether it stayed on one connection.
+
+```bash
+python tests/interop/client_attack.py -- <your client command>
+```
+
+The target is added to the end of your command, as `127.0.0.1:PORT/a`. If your client takes several paths and fetches them in order over one connection, add `--multi` to include the scenarios that need that. If it has a read-timeout option, pass it as `--timeout-flag=-t` (with the equals sign); that also enables a test where the server never answers. The exit status your client uses for success, for a 4xx/5xx answer and for a failed exchange defaults to 0, 1 and 3, and can be changed with `--ok-code`, `--http-error-code` and `--failure-code`.
+
+What it covers, with the answer a correct client gives:
+
+| Scenario | A correct client |
+|---|---|
+| Odd but legal answers: empty and repeated DATA frames, undefined flag bits, non-zero reserved bytes, unknown frame types anywhere, unknown header ids, a custom response header named in upper case or like a table header, a 3xx, a 503 | succeeds, with exactly the body that was sent (a 503 is reported as an error status) |
+| A frame over 16384 bytes, 0xFFFFFFFF, text HTTP, an unknown type over the limit | sends `ERROR(1)` on stream 0, closes |
+| A RESPONSE or DATA on stream 0 | sends `ERROR(2)`, closes |
+| A REQUEST sent to the client | sends `ERROR(3)`, closes |
+| An `ERROR` from the server, however odd, even one over the size limit | closes, sends nothing |
+| A wrong stream, DATA before RESPONSE, a second RESPONSE, a lying or malformed `content-length`, a bad status, trailing bytes in the RESPONSE, a header past the end of the payload | the exchange failed; closes without an `ERROR` |
+| The connection ending or resetting at any point before END_STREAM | the exchange failed |
+| After a failure, with several paths | sends no further request and does not reconnect |
+| A server that never answers | gives up by itself |
+
+Each scenario prints `PASS` or `FAIL` with the reason, and the exit status is non-zero if any failed. Two clients have been through it: the classmate's client passes all 61, and our own Go client failed three of the scenarios about custom response headers until it was fixed. The run is in `tests/interop/logs/classmate-client-attacks.txt`.
+
+## 10. Check the bytes your client really sends
+
+Your client's own `-v` output tells you what it believes it sent. `tests/interop/client_wire.py` puts a recording proxy between your client and a real server and checks the recorded bytes with its own decoder, so nothing depends on your client's account of itself.
+
+```bash
+python tests/interop/client_wire.py --server 127.0.0.1:9000 -- <your client command>
+```
+
+The server must serve `conformance/www`. Add `--multi` for clients that take several paths, `--no-headers` if there is no `-H "name: value"` option, and `--reference "<other client command>"` to also require byte-identical requests to a second client (we use our Go `bcurl`).
+
+For every case it checks that:
+
+- the request bytes equal a request built straight from the wire format: method, path and headers, with table headers sent by id, custom names in lowercase, repeats kept in order;
+- every frame sent is a REQUEST with END_STREAM set, reserved bytes zero and stream ids 1, 2, 3, and so on;
+- paths such as `/a:b`, `//x`, `/../x`, `/a\b` and a UTF-8 path go out exactly as typed, and a 4096-byte path goes out whole;
+- everything is on one connection, and your stdout equals the DATA bytes the server really sent;
+- requests it must refuse itself (a 4097-byte path, a header that cannot fit one frame) send nothing.
+
+A broken copy of the classmate's client that forgets END_STREAM is caught, and the unmodified client passes all 106 checks.
 
 ## Quick reference
 
