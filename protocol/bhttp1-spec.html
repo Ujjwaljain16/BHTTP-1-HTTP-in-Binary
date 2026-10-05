@@ -98,8 +98,8 @@
 
 <h2>7. Client rules</h2>
 <ul>
-<li>Skip unknown frame types. After a request expect a RESPONSE on its own stream, then DATA on the same stream until END_STREAM. Anything else is a failure: a frame on another stream, DATA before RESPONSE, a second RESPONSE, an ERROR, EOF or truncation before END_STREAM, a status outside 100 to 599, or a content-length (every occurrence) that differs from the bytes received. After a failure the client closes the connection and never reuses it. Timeouts are the client's own policy.</li>
-<li>A client sends an ERROR only for the connection faults in section 2 and for a REQUEST arriving from a server (<code>ERROR(3)</code>). It ignores undefined flag bits on RESPONSE and DATA, while a server rejects them on REQUEST. Status 400 or above is an error (a command-line client exits non-zero); 100 to 399 is not, and 3xx is not followed.</li>
+<li>Skip unknown frame types. After a request expect a RESPONSE on its own stream, then DATA on the same stream until END_STREAM. Anything else is a failure: a frame on another stream, DATA before RESPONSE, a second RESPONSE, an ERROR, EOF or truncation before END_STREAM, a status outside 100 to 599, a malformed RESPONSE payload (a length running past it, bytes left after the last header, a custom name length of 0 or over 255), or a content-length (every occurrence) that differs from the bytes received, which it may report as soon as the body exceeds it. After a failure the client closes the connection and never reuses it. Timeouts are the client's own policy.</li>
+<li>A client sends an ERROR only for the connection faults in section 2 and for a REQUEST arriving from a server (<code>ERROR(3)</code>). It ignores undefined flag bits on RESPONSE and DATA, while a server rejects them on REQUEST. It checks the structure of response headers but not their names: a custom name that would be invalid in a request is accepted and ignored, and never read as the table header of the same name. Status 400 or above is an error (a command-line client exits non-zero); 100 to 399 is not, and 3xx is not followed.</li>
 </ul>
 
 <h2>8. Limits and extensibility</h2>

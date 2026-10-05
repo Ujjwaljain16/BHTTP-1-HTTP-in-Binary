@@ -333,13 +333,18 @@ A client conforming to v1:
 5. Considers the response complete only at END_STREAM. If `content-length` is
    present, every occurrence must be 1 to 19 ASCII digits whose numeric value
    (leading zeros allowed) equals the DATA total, otherwise the response is
-   invalid.
+   invalid. A client MAY report that as soon as the DATA received exceeds a
+   `content-length`, without waiting for END_STREAM; the verdict is the same.
 6. Status: valid range is `100–599`, otherwise invalid. v1 has no interim
    responses: every RESPONSE is final. Status `≥ 400` is an error (a CLI exits
    non-zero); `100–399` is not an error, and 3xx is not followed.
 7. Header parsing in a RESPONSE is structural only: unknown IDs are ignored
-   (§7.4) and custom-name characters are not validated; a Name Length of 0 or
-   above 255, or a header running past the payload, is malformed.
+   (§7.4) and custom-name characters are not validated. A custom header whose
+   name equals a table name is not an error here either; it is ignored and is
+   never read as the table header, so a custom `content-length` does not count
+   for item 5. A Name Length of 0 or above 255, a header running past the
+   payload, or bytes left after the last header (the payload must end exactly
+   there, as in the wire format) make the RESPONSE malformed.
 8. Any failure under items 3, 5, 6 or 7, or an ERROR, EOF or truncation while
    a stream is outstanding, ends the exchange as failed and the client closes
    the connection; it does not reuse a connection after a protocol failure and
