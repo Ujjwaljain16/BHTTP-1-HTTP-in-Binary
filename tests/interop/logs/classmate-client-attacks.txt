@@ -1,0 +1,247 @@
+# A classmate's client against bserve: independent checks written for this project
+
+client   bcurl.py, a BHTTP/1 client in Python (standard library only), by Pratyush Mishra
+         https://github.com/PratyushMishra-2nd/BHTTP-1-HTTP-in-Binary at commit b92e3bc
+server   bserve built from this repository at commit afeb9ff
+host     Windows 11, Python 3.11.9, Go 1.23.3, everything over loopback, run on 2026-10-05
+
+These use no code from the client under test. The tools are in tests/interop/.
+
+==============================================================================
+1.  Exact bytes on the wire, recorded by a proxy and decoded independently: == 106 passed, 0 failed
+==============================================================================
+python tests/interop/client_wire.py --server HOST:PORT --multi --reference <our Go bcurl> -- python bcurl.py
+
+== requests decoded from the raw bytes
+PASS  GET /index.html: one connection
+PASS  GET /index.html: request bytes match the wire format
+PASS  GET /index.html: only REQUEST frames, END_STREAM set, reserved 0, stream ids 1..1
+PASS  GET /index.html: every stream was answered and ended
+PASS  GET /index.html: stdout is exactly the DATA bytes the server sent
+PASS  GET /index.html: exit status 0 for a worst status of 200
+PASS  GET /index.html: same request bytes as the reference client
+PASS  GET /: one connection
+PASS  GET /: request bytes match the wire format
+PASS  GET /: only REQUEST frames, END_STREAM set, reserved 0, stream ids 1..1
+PASS  GET /: every stream was answered and ended
+PASS  GET /: stdout is exactly the DATA bytes the server sent
+PASS  GET /: exit status 0 for a worst status of 200
+PASS  GET /: same request bytes as the reference client
+PASS  a custom header: one connection
+PASS  a custom header: request bytes match the wire format
+PASS  a custom header: only REQUEST frames, END_STREAM set, reserved 0, stream ids 1..1
+PASS  a custom header: every stream was answered and ended
+PASS  a custom header: stdout is exactly the DATA bytes the server sent
+PASS  a custom header: exit status 0 for a worst status of 200
+PASS  a custom header: same request bytes as the reference client
+PASS  table headers by id, names lowercased, repeats kept in order: one connection
+PASS  table headers by id, names lowercased, repeats kept in order: request bytes match the wire format
+PASS  table headers by id, names lowercased, repeats kept in order: only REQUEST frames, END_STREAM set, reserved 0, stream ids 1..1
+PASS  table headers by id, names lowercased, repeats kept in order: every stream was answered and ended
+PASS  table headers by id, names lowercased, repeats kept in order: stdout is exactly the DATA bytes the server sent
+PASS  table headers by id, names lowercased, repeats kept in order: exit status 0 for a worst status of 200
+PASS  table headers by id, names lowercased, repeats kept in order: same request bytes as the reference client
+PASS  a UTF-8 path, not percent-encoded: one connection
+PASS  a UTF-8 path, not percent-encoded: request bytes match the wire format
+PASS  a UTF-8 path, not percent-encoded: only REQUEST frames, END_STREAM set, reserved 0, stream ids 1..1
+PASS  a UTF-8 path, not percent-encoded: every stream was answered and ended
+PASS  a UTF-8 path, not percent-encoded: stdout is exactly the DATA bytes the server sent
+PASS  a UTF-8 path, not percent-encoded: exit status 0 for a worst status of 200
+PASS  a UTF-8 path, not percent-encoded: same request bytes as the reference client
+PASS  the path /a:b sent exactly as typed: one connection
+PASS  the path /a:b sent exactly as typed: request bytes match the wire format
+PASS  the path /a:b sent exactly as typed: only REQUEST frames, END_STREAM set, reserved 0, stream ids 1..1
+PASS  the path /a:b sent exactly as typed: every stream was answered and ended
+PASS  the path /a:b sent exactly as typed: stdout is exactly the DATA bytes the server sent
+PASS  the path /a:b sent exactly as typed: exit status 1 for a worst status of 400
+PASS  the path /a:b sent exactly as typed: same request bytes as the reference client
+PASS  the path //x sent exactly as typed: one connection
+PASS  the path //x sent exactly as typed: request bytes match the wire format
+PASS  the path //x sent exactly as typed: only REQUEST frames, END_STREAM set, reserved 0, stream ids 1..1
+PASS  the path //x sent exactly as typed: every stream was answered and ended
+PASS  the path //x sent exactly as typed: stdout is exactly the DATA bytes the server sent
+PASS  the path //x sent exactly as typed: exit status 1 for a worst status of 400
+PASS  the path //x sent exactly as typed: same request bytes as the reference client
+PASS  the path /../x sent exactly as typed: one connection
+PASS  the path /../x sent exactly as typed: request bytes match the wire format
+PASS  the path /../x sent exactly as typed: only REQUEST frames, END_STREAM set, reserved 0, stream ids 1..1
+PASS  the path /../x sent exactly as typed: every stream was answered and ended
+PASS  the path /../x sent exactly as typed: stdout is exactly the DATA bytes the server sent
+PASS  the path /../x sent exactly as typed: exit status 1 for a worst status of 400
+PASS  the path /../x sent exactly as typed: same request bytes as the reference client
+PASS  the path /a\b sent exactly as typed: one connection
+PASS  the path /a\b sent exactly as typed: request bytes match the wire format
+PASS  the path /a\b sent exactly as typed: only REQUEST frames, END_STREAM set, reserved 0, stream ids 1..1
+PASS  the path /a\b sent exactly as typed: every stream was answered and ended
+PASS  the path /a\b sent exactly as typed: stdout is exactly the DATA bytes the server sent
+PASS  the path /a\b sent exactly as typed: exit status 1 for a worst status of 400
+PASS  the path /a\b sent exactly as typed: same request bytes as the reference client
+PASS  the path /con sent exactly as typed: one connection
+PASS  the path /con sent exactly as typed: request bytes match the wire format
+PASS  the path /con sent exactly as typed: only REQUEST frames, END_STREAM set, reserved 0, stream ids 1..1
+PASS  the path /con sent exactly as typed: every stream was answered and ended
+PASS  the path /con sent exactly as typed: stdout is exactly the DATA bytes the server sent
+PASS  the path /con sent exactly as typed: exit status 1 for a worst status of 400
+PASS  the path /con sent exactly as typed: same request bytes as the reference client
+PASS  the path /index.html. sent exactly as typed: one connection
+PASS  the path /index.html. sent exactly as typed: request bytes match the wire format
+PASS  the path /index.html. sent exactly as typed: only REQUEST frames, END_STREAM set, reserved 0, stream ids 1..1
+PASS  the path /index.html. sent exactly as typed: every stream was answered and ended
+PASS  the path /index.html. sent exactly as typed: stdout is exactly the DATA bytes the server sent
+PASS  the path /index.html. sent exactly as typed: exit status 1 for a worst status of 400
+PASS  the path /index.html. sent exactly as typed: same request bytes as the reference client
+PASS  the path /%2e%2e/x sent exactly as typed: one connection
+PASS  the path /%2e%2e/x sent exactly as typed: request bytes match the wire format
+PASS  the path /%2e%2e/x sent exactly as typed: only REQUEST frames, END_STREAM set, reserved 0, stream ids 1..1
+PASS  the path /%2e%2e/x sent exactly as typed: every stream was answered and ended
+PASS  the path /%2e%2e/x sent exactly as typed: stdout is exactly the DATA bytes the server sent
+PASS  the path /%2e%2e/x sent exactly as typed: exit status 1 for a worst status of 404
+PASS  the path /%2e%2e/x sent exactly as typed: same request bytes as the reference client
+PASS  a 4096-byte path, the maximum: one connection
+PASS  a 4096-byte path, the maximum: request bytes match the wire format
+PASS  a 4096-byte path, the maximum: only REQUEST frames, END_STREAM set, reserved 0, stream ids 1..1
+PASS  a 4096-byte path, the maximum: every stream was answered and ended
+PASS  a 4096-byte path, the maximum: stdout is exactly the DATA bytes the server sent
+PASS  a 4096-byte path, the maximum: exit status 1 for a worst status of 404
+PASS  a 4096-byte path, the maximum: same request bytes as the reference client
+PASS  five requests on one connection: one connection
+PASS  five requests on one connection: request bytes match the wire format
+PASS  five requests on one connection: only REQUEST frames, END_STREAM set, reserved 0, stream ids 1..5
+PASS  five requests on one connection: every stream was answered and ended
+PASS  five requests on one connection: stdout is exactly the DATA bytes the server sent
+PASS  five requests on one connection: exit status 1 for a worst status of 404
+PASS  ten requests on one connection: one connection
+PASS  ten requests on one connection: request bytes match the wire format
+PASS  ten requests on one connection: only REQUEST frames, END_STREAM set, reserved 0, stream ids 1..10
+PASS  ten requests on one connection: every stream was answered and ended
+PASS  ten requests on one connection: stdout is exactly the DATA bytes the server sent
+PASS  ten requests on one connection: exit status 0 for a worst status of 200
+== requests the client must refuse itself
+PASS  a 4097-byte path: refused before sending anything
+PASS  a header value that cannot fit in one frame: refused before sending anything
+PASS  a header name with a space: refused before sending anything
+== 106 passed, 0 failed
+
+==============================================================================
+2.  A server that misbehaves in one way at a time: == 61 passed, 0 failed
+==============================================================================
+python tests/interop/client_attack.py --multi --timeout-flag=-t -- python bcurl.py
+
+== 60 scenarios against: python bcurl.py
+PASS  plain 200 with a body
+PASS  an empty body ends on the RESPONSE frame
+PASS  empty DATA frames are tolerated
+PASS  an empty DATA frame carrying END_STREAM after the body
+PASS  undefined flag bits and non-zero reserved bytes are ignored on RESPONSE and DATA
+PASS  unknown frame types are skipped wherever they appear, whatever their flags, stream and reserved bytes
+PASS  unknown header ids 9 to 255 in a response are ignored
+PASS  a custom response header with an upper-case name is accepted
+PASS  a custom response header named like a table header is accepted and ignored
+PASS  a custom header named content-length is not the real content-length
+PASS  content-length with leading zeros equals the body numerically
+PASS  repeated content-length headers that agree
+PASS  a 3xx answer is final and is not followed
+PASS  a 1xx answer is final
+PASS  a 503 is a normal result, reported as an error status
+PASS  body bytes arriving one at a time
+PASS  a frame arriving split across several writes
+PASS  a maximum-size DATA frame
+PASS  a DATA frame over the size limit gets ERROR(1)
+PASS  an unknown-type frame over the size limit gets ERROR(1)
+PASS  a length of 0xFFFFFFFF gets ERROR(1)
+PASS  text HTTP instead of frames gets ERROR(1)
+PASS  a RESPONSE on stream 0 gets ERROR(2)
+PASS  a DATA frame on stream 0 gets ERROR(2)
+PASS  a REQUEST sent to the client gets ERROR(3)
+PASS  an ERROR from the server: close, no reply
+PASS  an ERROR with an unknown code: close, no reply
+PASS  an ERROR with an empty payload: close, no reply
+PASS  an ERROR on a non-zero stream with flags set: close, no reply
+PASS  an ERROR frame over the size limit is not answered either
+PASS  an ERROR after the response and part of the body
+PASS  a RESPONSE on the wrong stream
+PASS  DATA before any RESPONSE
+PASS  a second RESPONSE on the same stream
+PASS  DATA on another stream
+PASS  a content-length larger than the body
+PASS  a content-length smaller than the body
+PASS  repeated content-length headers that disagree
+PASS  a content-length that is not digits
+PASS  an empty content-length
+PASS  a 20-digit content-length
+PASS  status 99
+PASS  status 600
+PASS  status 0
+PASS  a byte left over after the last header of a RESPONSE
+PASS  a header count that promises more headers than exist
+PASS  a header that runs past the end of the payload
+PASS  a custom header with a name length of 0
+PASS  a custom header with a name length of 256
+PASS  a RESPONSE payload shorter than three bytes
+PASS  the connection closes before any response
+PASS  the connection closes inside a frame header
+PASS  the connection closes inside a frame payload
+PASS  the connection closes inside an unknown frame being skipped
+PASS  the connection closes after the RESPONSE, before END_STREAM
+PASS  the connection closes in the middle of the body
+PASS  the connection is reset in the middle of the body
+PASS  after a failure no further request is sent and nothing reconnects
+PASS  after a 404 the later requests are still sent on the same connection
+PASS  a stray frame after END_STREAM is caught when the next response is read
+PASS  a server that never answers: the client gives up by itself (exit 3 after 1.1s)
+== 61 passed, 0 failed
+
+==============================================================================
+3.  Unusual but legal requests sent by their client to bserve: == 36 passed, 0 failed
+==============================================================================
+Checked: all eight table headers with odd values, `connection: close` having no effect, 255 headers,
+repeated headers, a request payload of exactly 16384 bytes, directory spellings, and 27 paths that
+must be refused with 400 or not found with 404.
+
+PASS  baseline fetch
+PASS  all eight table headers on every request, including 'connection: close' and a junk content-length: three requests still served on one connection
+PASS  255 custom headers
+PASS  repeated custom header
+PASS  a request whose payload is exactly 16384 bytes is accepted
+PASS  a request one byte over is refused locally by this client, nothing sent
+PASS  GET /docs
+PASS  GET /docs/
+PASS  GET /
+PASS  /a:b -> 400
+PASS  /.. -> 400
+PASS  /a/../b -> 400
+PASS  /./index.html -> 400
+PASS  //index.html -> 400
+PASS  /a\b -> 400
+PASS  /CON -> 400
+PASS  /nul.txt -> 400
+PASS  /com1 -> 400
+PASS  /lpt9.x -> 400
+PASS  /index.html. -> 400
+PASS  /index.html  -> 400
+PASS  /a?b -> 400
+PASS  /a*b -> 400
+PASS  /a"b -> 400
+PASS  /a<b -> 400
+PASS  /a>b -> 400
+PASS  /a|b -> 400
+PASS  /%2e%2e/secret -> 404
+PASS  /index.html/ -> 404
+PASS  /missing -> 404
+PASS  /docs/missing -> 404
+PASS  /.hidden -> 404
+PASS  /console -> 404
+PASS  /com10 -> 404
+PASS  /x.con -> 404
+PASS  /a..b -> 404
+== 36 passed, 0 failed
+
+==============================================================================
+4.  Finding: -o FILE can leave a truncated download in place (reported upstream)
+==============================================================================
+Reproduced by making the client fail half way through a body in three ways. Complete downloads and
+the documented failure paths are fine; Ctrl-C and an I/O error are not.
+
+PASS  complete download                                              result=0                      file at FILE: 40000 of 40000 bytes
+FAIL  Ctrl-C (KeyboardInterrupt) half way through the body           result=raised KeyboardInterrupt file at FILE: 32768 of 40000 bytes
+FAIL  unexpected I/O error (disk full) half way through the body     result=raised OSError         file at FILE: 32768 of 40000 bytes
