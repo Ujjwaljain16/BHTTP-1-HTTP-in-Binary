@@ -323,6 +323,15 @@ func TestToleratedServerQuirks(t *testing.T) {
 			p := []byte{0x00, 0xC8, 0x02, 200, 0x00, 0x01, 'x', 0x02, 0x00, 0x01, '3'}
 			send(t, conn, frame.Frame{Type: frame.TypeResponse, StreamID: req.StreamID, Payload: p}, data(req.StreamID, end, "abc"))
 		}, 200, "abc"},
+		{"custom response header names are not judged", func(conn net.Conn, req frame.Frame) {
+			p := []byte{0x00, 0xC8, 0x03}
+			p = append(p, 0x00, 0x00, 0x07, 'X', '-', 'U', 'p', 'p', 'e', 'r', 0x00, 0x01, 'v')
+			p = append(p, 0x00, 0x00, 0x0E)
+			p = append(p, "content-length"...)
+			p = append(p, 0x00, 0x03, 'a', 'b', 'c') // a custom header, not the real content-length
+			p = append(p, 0x02, 0x00, 0x01, '3')
+			send(t, conn, frame.Frame{Type: frame.TypeResponse, StreamID: req.StreamID, Payload: p}, data(req.StreamID, end, "abc"))
+		}, 200, "abc"},
 		{"1xx and 3xx are not treated as failures", func(conn net.Conn, req frame.Frame) {
 			send(t, conn, resp(t, req.StreamID, end, 302))
 		}, 302, ""},

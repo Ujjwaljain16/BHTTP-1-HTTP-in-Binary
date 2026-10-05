@@ -414,6 +414,13 @@ func FuzzDecodeResponse(f *testing.F) {
 			}
 			return
 		}
+		// Names are only checked for structure on the way in, so a response may
+		// carry names we would never send ourselves.
+		for _, h := range resp.Headers {
+			if _, table := tableIDs[h.Name]; !table && !validCustomName(h.Name) {
+				return
+			}
+		}
 		again, err := resp.Encode()
 		if err != nil {
 			t.Fatalf("accepted response could not be re-encoded: %v", err)
@@ -441,4 +448,68 @@ func FuzzDecodeConnError(f *testing.F) {
 			t.Fatalf("re-encoding changed the bytes: % X vs % X (%v)", again, data, err)
 		}
 	})
+}
+
+// A client reading a response only checks its structure; the names a server
+// picks are not its business. A request is held to the full rules.
+func TestResponseHeaderNamesAreCheckedForStructureOnly(t *testing.T) {
+	respWith := func(headers ...[]byte) []byte {
+		p := []byte{0x00, 0xC8, byte(len(headers))}
+		for _, h := range headers {
+			p = append(p, h...)
+		}
+		return p
+	}
+
+	accepted := map[string]string{
+		"upper case":            "X-Upper",
+		"space":                 "x trace",
+		"colon":                 "x:y",
+		"non-ASCII bytes":       "caf\xc3\xa9",
+		"control byte":          "x\x01y",
+		"255 bytes of anything": strings.Repeat("Z", 255),
+	}
+	for name, hn := range accepted {
+		t.Run("accepts "+name, func(t *testing.T) {
+			got, err := DecodeResponse(respWith(hdr(0, hn, "v")))
+			if err != nil {
+				t.Fatalf("response refused: %v", err)
+			}
+			if len(got.Headers) != 1 || got.Headers[0].Name != hn || string(got.Headers[0].Value) != "v" {
+				t.Fatalf("headers = %+v", got.Headers)
+			}
+			if _, err := DecodeRequest(reqBytes(0x01, 1, "/", 1, hdr(0, hn, "v"))); !errors.Is(err, ErrMalformed) {
+				t.Fatalf("the same header in a request must still be refused, got %v", err)
+			}
+		})
+	}
+
+	t.Run("a custom header named like a table header is ignored, never mistaken for it", func(t *testing.T) {
+		got, err := DecodeResponse(respWith(
+			hdr(0, "content-length", "not a number"),
+			hdr(0, "content-type", "x"),
+			hdr(0, "server", "y"),
+			hdr(2, "", "5"),
+			hdr(0, "x-keep", "k"),
+		))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(got.Headers) != 2 || got.Headers[0].Name != HeaderContentLength || string(got.Headers[0].Value) != "5" || got.Headers[1].Name != "x-keep" {
+			t.Fatalf("headers = %+v, want only the real content-length and x-keep", got.Headers)
+		}
+	})
+
+	for name, payload := range map[string][]byte{
+		"name length zero":            respWith(hdr(0, "", "v")),
+		"name length 256":             respWith(hdr(0, strings.Repeat("a", 256), "v")),
+		"name runs past the payload":  respWith([]byte{0x00, 0x00, 0x09, 'a', 'b'}),
+		"value runs past the payload": respWith([]byte{0x00, 0x00, 0x01, 'a', 0x00, 0x09, 'v'}),
+	} {
+		t.Run("still refuses "+name, func(t *testing.T) {
+			if _, err := DecodeResponse(payload); !errors.Is(err, ErrMalformed) {
+				t.Fatalf("got %v, want ErrMalformed", err)
+			}
+		})
+	}
 }

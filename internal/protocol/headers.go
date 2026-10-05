@@ -96,10 +96,20 @@ func appendHeaders(dst []byte, headers []Header) ([]byte, error) {
 	return dst, nil
 }
 
+// nameRules says how closely custom header names are checked. A server holds
+// requests to the full rules. A client reading a response only checks the
+// structure, because it is not its place to judge the names a server chose.
+type nameRules int
+
+const (
+	strictNames nameRules = iota
+	structuralNames
+)
+
 // readHeaders parses the count byte and the headers behind it. Headers whose
 // identifier we do not know are still consumed, so a newer peer's additions
 // cannot knock us out of step, but they are not returned.
-func readHeaders(c *cursor) ([]Header, error) {
+func readHeaders(c *cursor, rules nameRules) ([]Header, error) {
 	count, err := c.u8()
 	if err != nil {
 		return nil, err
@@ -129,11 +139,19 @@ func readHeaders(c *cursor) ([]Header, error) {
 				return nil, err
 			}
 			name = string(raw)
-			if !validCustomName(name) {
-				return nil, malformed("custom header name of %d bytes is not allowed", nameLen)
+			if nameLen == 0 || nameLen > MaxCustomNameLen {
+				return nil, malformed("custom header name of %d bytes is outside 1..%d", nameLen, MaxCustomNameLen)
 			}
-			if _, clash := tableIDs[name]; clash {
+			_, clash := tableIDs[name]
+			switch {
+			case rules == strictNames && !validCustomName(name):
+				return nil, malformed("custom header name of %d bytes is not allowed", nameLen)
+			case rules == strictNames && clash:
 				return nil, malformed("header %q must use its table identifier", name)
+			case clash:
+				// Not returned, so a custom header can never be mistaken for
+				// the real one, content-length above all.
+				known = false
 			}
 		case int(id) < len(tableNames):
 			name = tableNames[id]

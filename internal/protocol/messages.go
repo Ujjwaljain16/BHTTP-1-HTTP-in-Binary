@@ -61,7 +61,7 @@ func DecodeRequest(payload []byte) (Request, error) {
 		return Request{}, malformed("path is not valid UTF-8")
 	}
 
-	headers, err := readHeaders(c)
+	headers, err := readHeaders(c, strictNames)
 	if err != nil {
 		return Request{}, err
 	}
@@ -103,7 +103,7 @@ func DecodeResponse(payload []byte) (Response, error) {
 	if !validStatus(int(status)) {
 		return Response{}, malformed("status %d is outside 100..599", status)
 	}
-	headers, err := readHeaders(c)
+	headers, err := readHeaders(c, structuralNames)
 	if err != nil {
 		return Response{}, err
 	}
