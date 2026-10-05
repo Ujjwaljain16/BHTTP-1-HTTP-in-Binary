@@ -92,6 +92,18 @@ Two independent Python implementations were written from the specification alone
 
 Building them surfaced about seventy places where the first draft of the specification was ambiguous or silent. Each was resolved in the specification rather than in code, and the runs above are against the final text.
 
+### A client written by someone else
+
+A classmate's client has been tested too: `bcurl.py`, Python with only the standard library, from [PratyushMishra-2nd/BHTTP-1-HTTP-in-Binary](https://github.com/PratyushMishra-2nd/BHTTP-1-HTTP-in-Binary) at commit `b92e3bc`. Its README says it was written from the specification in this repository, and its comments cite our section numbers.
+
+![Results of a classmate's client against bserve](tests/interop/logs/classmate-client-results.png)
+
+- Its own checklist (the client checklist in [`docs/INTEROP_GUIDE.md`](docs/INTEROP_GUIDE.md)) passes 79 of 79 against `bserve`, with exactly one connection per run, and 78 of 78 through each of the four `bchaos` modes and against our Python server.
+- Its own reporting was not taken on trust. A recording proxy and an independent decoder confirm that the bytes it sends are exactly what the wire format describes and what our Go client sends (106 of 106 checks). Sixty-one scenarios from a deliberately misbehaving server show how it handles faults.
+- Testing from that side found one real bug in each client. Ours wrongly rejected response header names that the specification says a client must not judge; that is fixed, with tests. Theirs can leave a truncated file behind with `-o` after Ctrl-C or an I/O error; that is described in the log. Their notes on the specification also closed two gaps in its wording.
+
+The logs are `tests/interop/logs/classmate-client-vs-bserve.txt` and `classmate-client-attacks.txt`.
+
 `examples/hexdump/annotated-hexdump.md` is one real exchange (a client fetching a 69-byte PNG with one custom request header), captured by a recording proxy sitting between the two programs. The annotation is generated from the captured bytes and checked against the client's own `-v` output and the served file.
 
 ## Conformance and chaos testing
@@ -100,6 +112,10 @@ Building a client and want to test it against this server? Start with [`docs/INT
 
 - **`conformance/`** holds eleven files with SHA-256 checksums, chosen so every case a client can get wrong has a file that exposes it: the empty file, one byte under a full frame, exactly a full frame, one over, four frames, all 256 byte values, and a UTF-8 path.
 - **`bchaos`** is a proxy that relays a server's answers in random pieces (down to one byte at a time) and mixes in frames of unknown types. A client with sound framing does not notice; one that assumes a read is a frame, or that rejects unknown types, fails immediately. Its own tests check that it catches exactly those two mistakes.
+- **`tests/interop/client_attack.py`** plays a server that misbehaves in one way at a time (wrong stream ids, lying lengths, ERROR frames, oversized frames, truncation, resets) and judges the client on its exit status, on whether it answered with the right ERROR frame or just closed, and on staying on one connection.
+- **`tests/interop/client_wire.py`** records the bytes a client really sends and compares them with a request built straight from the wire format, so a client's own account of what it sent is never trusted.
+
+Both take the client command after `--`, so they work on any client. Our own client is run against them in its test suite.
 
 ## Architecture
 
@@ -133,7 +149,7 @@ internal/client/    the client and its response rules
 internal/wire/      the tap behind bcurl -v
 internal/chaos/     transport and framing stress tool
 conformance/        deterministic fixtures with checksums
-tests/interop/      independent Python client and server, and logs of the runs
+tests/interop/      independent Python client and server, the client check tools, and logs of the runs
 examples/hexdump/   a real captured exchange, annotated byte by byte
 docs/               architecture, and the interoperability guide
 Dockerfile          a ready-to-test server image
@@ -169,7 +185,8 @@ go test ./internal/frame -fuzz FuzzRead
 | Command line | the real executables: exit codes and raw binary stdout |
 | Wire evidence | a real capture, and a test that rebuilds the `-v` output's bytes and compares them with a recording proxy, both directions |
 | Conformance | every fixture file's checksum and frame count checked against what the server sends |
-| Race detector | the full suite (368 tests and subtests) under `-race` in a Linux container |
+| Client checks | our client run against the two tools in `tests/interop`: 57 hostile-server scenarios and 81 checks of the bytes it sends |
+| Race detector | the full suite (368 tests and subtests) under `-race` in a Linux container; tests added after that run have not been run under it |
 
 ## Documentation
 
@@ -189,9 +206,9 @@ BHTTP/1 is complete and frozen. The submitted implementation is intentionally no
 
 ## Verification limits
 
-- No interoperability run has yet been performed against an unrelated third-party implementation. Two implementations written from the specification alone stand in for one.
+- Interoperability has been shown against one implementation written by someone else, a classmate's client, and against two written for this project from the specification alone. No one else's server has been tested. The classmate's README says it was written from the specification alone, but this repository also contains Python clients, so independence from them cannot be proven.
 - The two-page specification is derived by hand from the full specification and reviewed; it is not generated from it or mechanically diff-checked. A script did confirm that every number and fact in it also appears in the full text.
 - The race suite runs on Linux (`golang:1.23`, Go 1.23.12) because the Windows development machine has no C compiler. Windows-specific behaviour (the exclusive-lock `500` test, junction handling) is tested natively on Windows but not under the race detector, and the `500` test is skipped in the Linux run because the container runs as root.
-- The latest wording clarifications to the specification (path and UTF-8 details, links inside the root, reset versus EOF after an error) were checked by re-running the interoperability suites, not by a new independent reading.
+- The client rules in the final wording of the specification were read independently by the classmate, whose client cites its section numbers. The latest server-side clarifications (path and UTF-8 details, links inside the root, reset versus EOF after an error) were checked by re-running the interoperability suites, not by a new independent reading.
 - The v1 frame header has no version field. A different version can only be detected by a fault.
 - v1 is intentionally sequential: no multiplexing, request bodies, compression or TLS.

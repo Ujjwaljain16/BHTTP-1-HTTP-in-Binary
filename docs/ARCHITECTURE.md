@@ -114,6 +114,7 @@ Testing works at several distances from the code, because each catches different
 - **Two independent implementations written from the specification alone** (a Python client and a Python server, by an implementer who never saw the Go code). Building them exposed about seventy places where the first draft of the specification was ambiguous or silent; each was resolved in the specification, not patched in code. The final runs against the final text pass in both directions.
 - **A real capture,** annotated byte by byte from a recording proxy.
 - **`bchaos`,** which stresses a client's framing with one-byte delivery and unknown frames, and is itself tested against deliberately broken clients to prove it catches them.
+- **A client written by someone else.** A classmate's Python client passes the guide's checklist against `bserve` directly and through every `bchaos` mode. Two tools written for this project, which share no code with any client, then judged it independently: one records the bytes it sends and compares them with the wire format, the other plays a server that misbehaves in one way at a time. Run against our own client they found a real bug (it rejected response header names a client must not judge), now fixed, and they are part of its test suite.
 
 The race detector needs a C compiler that the Windows development machine lacks, so the full suite was run under `-race` in a Linux container: clean.
 
@@ -135,5 +136,5 @@ The race detector needs a C compiler that the Windows development machine lacks,
 
 - Requests are sequential: no multiplexing, no request bodies, no compression, no TLS.
 - There is no version negotiation.
-- Interoperability has been demonstrated against two implementations written from the specification, not against another person's server. `docs/INTEROP_GUIDE.md` is written so that can be done in an afternoon.
+- Interoperability has been demonstrated against one implementation written by someone else (a client) and two written from the specification for this project. No one else's server has been tested; `docs/INTEROP_GUIDE.md` is written so that can be done in an afternoon.
 - The race-detector run was on Linux, so the Windows-only code paths (the exclusive-lock test for `500` and junction handling) ran natively but not under the detector.
