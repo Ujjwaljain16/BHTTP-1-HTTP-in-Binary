@@ -40,7 +40,7 @@
 <tr><td>6</td><td>2</td><td>Reserved</td><td>sender sends 0, receiver ignores it</td></tr>
 <tr><td>8</td><td>4</td><td>Stream ID</td><td>non-zero on REQUEST, RESPONSE and DATA; ERROR uses 0</td></tr>
 </table>
-<p>Widths: Length is 32 bits although 14 would fit the 16 KiB cap, which keeps the header 4-byte aligned and lets a later version raise the cap without changing the layout. Type has 251 values left for extensions, and Reserved is room for a future field.</p>
+<p>Widths: Length is 32 bits although 14 would fit the 16 KiB cap, which keeps the header 4-byte aligned and lets a later version raise the cap without changing the layout. Type has 251 values left for extensions, Flags has one bit used and seven for later, and Reserved is room for a future field. Stream ID is a full 32 bits (HTTP/2 uses 31 bits, and 24 for Length) because 2<sup>32</sup> exchanges per connection is ample and the field stays a plain integer, with no bit to mask.</p>
 
 <p><b>Receiver algorithm</b> (client and server alike):</p>
 <ul>
