@@ -208,7 +208,13 @@ go test ./internal/frame -fuzz FuzzRead
 
 ## Status
 
-BHTTP/1 is complete and frozen. The submitted implementation is intentionally not being changed; any follow-up work is developed on separate branches.
+BHTTP/1 is complete and frozen: the bytes on the wire and the behaviour of `bserve` are exactly what was submitted, and further protocol work is developed on separate branches.
+
+Changes since the first submission, all found by testing a classmate's client:
+
+- `bcurl` no longer judges the names of response headers, which the specification says a client must not do.
+- The specification's client rules were clarified in three places: bytes left over in a RESPONSE, failing early when the body outgrows a `content-length`, and a custom response header named like a table header.
+- Added `tests/interop/client_attack.py` and `client_wire.py`, their tests, the classmate run logs, and a screenshot of a live run.
 
 ## Verification limits
 
