@@ -83,6 +83,12 @@ docker build -t bhttp .
 docker run --rm -p 9000:9000 bhttp
 ```
 
+### Running, on screen
+
+![bserve on the left, bcurl on the right](docs/screenshots/server-and-client-live.png)
+
+Left: `bserve` logging each connection and request. Right: `bcurl -v` showing the request, response and DATA frames of one fetch; a `404` and a rejected path, both exiting 1; a binary file whose SHA-256 matches the served file; and eight requests on one persistent connection (one `connected`, eight requests, one `disconnected` in the server log).
+
 ## Independent interoperability
 
 Two independent Python implementations were written from the specification alone (the three files in `protocol/`), sharing no code with the Go implementation.
@@ -151,7 +157,7 @@ internal/chaos/     transport and framing stress tool
 conformance/        deterministic fixtures with checksums
 tests/interop/      independent Python client and server, the client check tools, and logs of the runs
 examples/hexdump/   a real captured exchange, annotated byte by byte
-docs/               architecture, and the interoperability guide
+docs/               architecture, the interoperability guide, and a screenshot of a live run
 Dockerfile          a ready-to-test server image
 ```
 
